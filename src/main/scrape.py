@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 import pymongo
 import os
 import time
+import traceback
 from concurrent.futures import ProcessPoolExecutor, wait
+
 
 load_dotenv()
 client = pymongo.MongoClient(os.environ.get("MONGODB_URI")) 
@@ -22,8 +24,11 @@ now = datetime.now()
 formatted_date = now.strftime("%b %d, %Y")
 search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX", "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
 
-def scraper_1():
-    def initialize_driver():
+class Scraper1:
+    def __init__(self):
+        self.driver = self.initialize_driver()
+
+    def initialize_driver(self):
         options = Options()
         options.add_argument('--headless')
         options.add_argument('--disable-dev-shm-usage')
@@ -31,14 +36,14 @@ def scraper_1():
 
         return webdriver.Chrome(options=options)
 
-    def handle_cookie_consent(driver):
+    def handle_cookie_consent(self):
         try:
             # Wait for the cookie consent banner to be present
             cookie_banner_present = EC.presence_of_element_located((By.ID, 'onetrust-button-group'))
-            WebDriverWait(driver, 10).until(cookie_banner_present)
+            WebDriverWait(self.driver, 10).until(cookie_banner_present)
 
             # Close the cookie consent banner by clicking the "Accept All" button (or any other appropriate button)
-            accept_button = driver.find_element(By.ID, 'onetrust-accept-btn-handler')
+            accept_button = self.driver.find_element(By.ID, 'onetrust-accept-btn-handler')
             accept_button.click()
 
             # Wait briefly to allow the page to update after closing the banner
@@ -48,15 +53,15 @@ def scraper_1():
         except Exception as e:
             print("Moving on")
 
-    def scrape_headline_news(driver, url):
+    def scrape_headline_news(self, url):
         headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
         button_selector = 'button.sc-16891c57-0.foDtUe'
         time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
 
-        driver.get(url)
-        handle_cookie_consent(driver)
+        self.driver.get(url)
+        self.handle_cookie_consent()
         
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(self.driver, 10)
         headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
         see_more_button_present = EC.presence_of_element_located((By.CSS_SELECTOR, button_selector))
         time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
@@ -64,7 +69,7 @@ def scraper_1():
         wait.until(see_more_button_present)
         wait.until(time_present)
 
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         headline_news = []
 
         headlines = soup.select(headline_selector)
@@ -79,11 +84,11 @@ def scraper_1():
 
         # Click the "See More" button twice to load more news
         for _ in range(2):
-            see_more_button = driver.find_element(By.CSS_SELECTOR, button_selector)
+            see_more_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
             see_more_button.click()
 
             time.sleep(5)
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
 
             headlines = soup.select(headline_selector)
             dates = soup.select(time_selector)
@@ -96,7 +101,7 @@ def scraper_1():
         return headline_news
 
     # Method to search result using ticker symbol. returns dictionary
-    def search_ticker_symbol(symbol_list):
+    def search_ticker_symbol(self, symbol_list):
         url_list = dict()
         for symbol in symbol_list:
             # Retrieve the full name of ticker symbol
@@ -104,10 +109,10 @@ def scraper_1():
             url_list[symbol] = f"https://coinmarketcap.com/currencies/{name}/#News"
         return url_list
 
-    def create_data(driver, url_list):
+    def create_data(self, url_list):
         symbol_news_dict = {}
         for symbol, url in url_list.items():
-            headlines = scrape_headline_news(driver, url)
+            headlines = self.scrape_headline_news(url)
 
             if headlines:
                 symbol_news_dict[symbol] = headlines
@@ -115,7 +120,7 @@ def scraper_1():
 
         return symbol_news_dict
 
-    def store_into_db(data):
+    def store_into_db(self, data):
         existing_entry = news.find_one({"date": formatted_date})
 
         if existing_entry:
@@ -126,7 +131,7 @@ def scraper_1():
                     symbol_headlines_dict[symbol] = []
 
                 for headline in headlines:
-                    if validate_time(headline[0]) and headline[1] not in [h["headline"] for h in symbol_headlines_dict[symbol]]:
+                    if self.validate_time(headline[0]) and headline[1] not in [h["headline"] for h in symbol_headlines_dict[symbol]]:
                         symbol_headlines_dict[symbol].append({
                             "headline": headline[1],
                             "created": now,
@@ -142,7 +147,7 @@ def scraper_1():
                     symbol_headlines_dict[symbol] = []
 
                     for headline in headlines:
-                        if validate_time(headline[0]):
+                        if self.validate_time(headline[0]):
                             symbol_headlines_dict[symbol].append({
                                 "headline": headline[1],
                                 "created": now,
@@ -152,36 +157,44 @@ def scraper_1():
             if symbol_headlines_dict:
                 news.insert_one({"symbol_headlines": symbol_headlines_dict, "date": formatted_date})
 
-    def validate_time(data):
+    def validate_time(self, data):
         if data == 'an hour ago' or 'minutes' in data:
             return True
         return False
-    
-    url_list = search_ticker_symbol(search_list)
-    driver = initialize_driver()
-    symbol_news_dict = create_data(driver, url_list)
-    driver.quit()
-    store_into_db(symbol_news_dict)
 
-def scraper_2():
-    def initialize_driver():
+def scraper_1():
+    scraper = Scraper1()
+    try:
+        url_list = scraper.search_ticker_symbol(search_list)
+        symbol_news_dict = scraper.create_data(url_list)
+        scraper.store_into_db(symbol_news_dict)
+    except Exception as e:
+        print("An exception occurred in scraper_1:")
+        print(traceback.format_exc())
+
+class Scraper2:
+    def __init__(self):
+        self.driver = self.initialize_driver()
+
+    def initialize_driver(self):
         options = Options()
         options.add_argument('--headless')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--log-level=3')  # Suppress log messages
 
         return webdriver.Chrome(options=options)
 
-    def scrape_headline_news(driver, url):
-        driver.get(url)
+    def scrape_headline_news(self, url):
+        self.driver.get(url)
 
         # Wait for both headlines and dates to be present on the page
-        wait = WebDriverWait(driver, 10)
+        wait = WebDriverWait(self.driver, 10)
         headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a.Box-sc-1hpkeeg-0.hBnhmi h6.typography__StyledTypography-sc-owin6q-0.fkaXgH'))
         dates_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.searchstyles__DateWrapper-sc-ci5zlg-24.iQeyNE h6.typography__StyledTypography-sc-owin6q-0.fQGhGk'))
         wait.until(headlines_present)
         wait.until(dates_present)
 
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         headline_news = []
 
         # CSS Selectors for headlines and dates
@@ -198,16 +211,16 @@ def scraper_2():
         return headline_news
 
     # Method to search result using ticker symbol. returns dictionary
-    def search_ticker_symbol(symbol_list):
+    def search_ticker_symbol(self, symbol_list):
         url_list = dict()
         for symbol in symbol_list:
             url_list[symbol] = f"https://www.coindesk.com/search?s={symbol}&sort=1"
         return url_list
 
-    def create_data(driver, url_list):
+    def create_data(self, url_list):
         symbol_news_dict = {}
         for symbol, url in url_list.items():
-            headlines = scrape_headline_news(driver, url)
+            headlines = self.scrape_headline_news(url)
 
             if headlines:
                 symbol_news_dict[symbol] = headlines
@@ -215,7 +228,7 @@ def scraper_2():
 
         return symbol_news_dict
 
-    def store_into_db(data):
+    def store_into_db(self, data):
         existing_entry = news.find_one({"date": formatted_date})
 
         if existing_entry:
@@ -252,11 +265,20 @@ def scraper_2():
             if symbol_headlines_dict:
                 news.insert_one({"symbol_headlines": symbol_headlines_dict, "date": formatted_date})
 
-    url_list = search_ticker_symbol(search_list)
-    driver = initialize_driver()
-    symbol_news_dict = create_data(driver, url_list)
-    driver.quit()
-    store_into_db(symbol_news_dict)
+    def validate_time(self, data):
+        if data == 'an hour ago' or 'minutes' in data:
+            return True
+        return False
+
+def scraper_2():
+    scraper = Scraper2()
+    try:
+        url_list = scraper.search_ticker_symbol(search_list)
+        symbol_news_dict = scraper.create_data(url_list)
+        scraper.store_into_db(symbol_news_dict)
+    except Exception as e:
+        print("An exception occurred in scraper_2:")
+        print(traceback.format_exc())
 
 if __name__ == "__main__":
     start_time = time.time()
