@@ -37,32 +37,12 @@ class Scraper1:
 
         return webdriver.Chrome(options=options)
 
-    def handle_cookie_consent(self):
-        try:
-            # Wait for the cookie consent banner to be present
-            cookie_banner_present = EC.presence_of_element_located((By.ID, 'onetrust-button-group'))
-            WebDriverWait(self.driver, 10).until(cookie_banner_present)
-
-            # Close the cookie consent banner by clicking the "Accept All" button (or any other appropriate button)
-            accept_button = self.driver.find_element(By.ID, 'onetrust-accept-btn-handler')
-            accept_button.click()
-
-            # Wait briefly to allow the page to update after closing the banner
-            time.sleep(5)
-        except TimeoutException:
-            print("Cookie consent banner not found. Proceeding without handling it.")
-        except NoSuchElementException as e:
-            print("Element not found:", e)
-        except Exception as e:
-            print("Error occurred:", e)
-
     def scrape_headline_news(self, url):
         headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
         button_selector = 'button.sc-16891c57-0.foDtUe'
         time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
 
         self.driver.get(url)
-        self.handle_cookie_consent()
         
         wait = WebDriverWait(self.driver, 30)
         
@@ -89,7 +69,7 @@ class Scraper1:
         # Click the "See More" button twice to load more news
         for _ in range(2):
             see_more_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
-            see_more_button.click()
+            self.driver.execute_script('arguments[0].click()', see_more_button)
 
             time.sleep(5)
             soup = BeautifulSoup(self.driver.page_source, 'html.parser')
@@ -101,6 +81,8 @@ class Scraper1:
                 headline_text = headlines[i].get_text().strip()
                 date_text = dates[i].get_text().strip()
                 headline_news.append((date_text, headline_text))
+
+        print(headline_news)
 
         return headline_news
 
