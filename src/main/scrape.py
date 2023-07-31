@@ -49,10 +49,12 @@ class Scraper1:
 
             # Wait briefly to allow the page to update after closing the banner
             time.sleep(5)
-        except NoSuchElementException:
+        except TimeoutException:
             print("Cookie consent banner not found. Proceeding without handling it.")
+        except NoSuchElementException as e:
+            print("Element not found:", e)
         except Exception as e:
-            print("Moving on")
+            print("Error occurred:", e)
 
     def scrape_headline_news(self, url):
         headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
@@ -137,7 +139,8 @@ class Scraper1:
                         symbol_headlines_dict[symbol].append({
                             "headline": headline[1],
                             "created": now,
-                            "processed": False
+                            "processed": False,
+                            "labelled": None
                         })
 
             news.update_one({"date": formatted_date}, {"$set": {"symbol_headlines": symbol_headlines_dict}})
@@ -153,7 +156,8 @@ class Scraper1:
                             symbol_headlines_dict[symbol].append({
                                 "headline": headline[1],
                                 "created": now,
-                                "processed": False
+                                "processed": False,
+                                "labelled": None
                             })
 
             if symbol_headlines_dict:
@@ -245,7 +249,8 @@ class Scraper2:
                         symbol_headlines_dict[symbol].append({
                             "headline": headline[1],
                             "created": now,
-                            "processed": False
+                            "processed": False,
+                            "labelled": None
                         })
 
             news.update_one({"date": formatted_date}, {"$set": {"symbol_headlines": symbol_headlines_dict}})
@@ -261,7 +266,8 @@ class Scraper2:
                             symbol_headlines_dict[symbol].append({
                                 "headline": headline[1],
                                 "created": now,
-                                "processed": False
+                                "processed": False,
+                                "labelled": None
                             })
 
             if symbol_headlines_dict:

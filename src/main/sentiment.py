@@ -3,12 +3,15 @@ from dotenv import load_dotenv
 import pymongo
 import os
 from datetime import datetime
+import openai
+import time
 
 load_dotenv()
 client = pymongo.MongoClient(os.environ.get("MONGODB_URI")) 
 db = client['getrich']
 news = db['news']
 sentiments = db['sentiments']
+openai.api_key=os.environ.get("OPEN_AI_KEY")
 
 now = datetime.now()
 formatted_date = now.strftime("%b %d, %Y")
@@ -18,6 +21,17 @@ def load_data():
     data = news.find_one({"date": formatted_date})
     return data
 
+#ChatGPT API
+def chat_with_gpt(prompt):
+    response=openai.ChatCompletion.create(
+        model='gpt-3.5-turbo',
+        messages=[
+            {"role":"system", "content":"Hello"},
+            {"role": "user","content":prompt}
+        ]
+    )
+    return response.choices[0].message.content.strip()
+
 def calculate_sentiment(data):
     coin_to_headlines = data['symbol_headlines']
     score_list = dict()
@@ -25,14 +39,22 @@ def calculate_sentiment(data):
         headlines = coin_to_headlines[symbol]
         score = 0
         for headline in headlines:
+            labelled = 0
             if not headline['processed']:
                 # Call FinGPT, placebo function first
-                print(headline['headline'])
-                score += 1
-                # Update the 'processed' field to True for the current headline
+                process_input=f"Human: Determine the sentiment of the financial news as negative, neutral or positive: {headline['headline']} Assistant: "
+                time.sleep(1)
+                response=chat_with_gpt(process_input)
+                if "negative" in response:
+                    score -= 1
+                    labelled = -1
+                elif "positive" in response:
+                    score += 1
+                    labelled = 1
+                print(f"{headline['headline']} labelled as {labelled}")
                 news.update_one(
                     {"date": formatted_date, "symbol_headlines." + symbol: {"$elemMatch": {"headline": headline['headline']}}},
-                    {"$set": {"symbol_headlines." + symbol + ".$.processed": True}}
+                    {"$set": {"symbol_headlines." + symbol + ".$.processed": True, "symbol_headlines." + symbol + ".$.labelled": labelled}}
                 )
         score_list[symbol] = score
     sorted_score_list = dict(sorted(score_list.items(), key=lambda item: item[1], reverse=True))
