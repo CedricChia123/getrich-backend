@@ -70,33 +70,46 @@ def create_data(driver, url_list):
     return symbol_news_dict
 
 def store_into_db(data):
-    # Create a dictionary to store symbol-wise headline and created time arrays
-    symbol_headlines_dict = {}
+    existing_entry = news.find_one({"date": formatted_date})
 
-    for symbol, headlines in data.items():
-        if headlines:
-            # Initialize the headlines list for the symbol
-            symbol_headlines_dict[symbol] = []
+    if existing_entry:
+        symbol_headlines_dict = existing_entry.get("symbol_headlines", {})
+
+        for symbol, headlines in data.items():
+            if symbol not in symbol_headlines_dict:
+                symbol_headlines_dict[symbol] = []
 
             for headline in headlines:
-                if headline[0] == formatted_date:
-                    # Append the headline and created time tuple to the list
+                if headline[0] == formatted_date and headline[1] not in [h["headline"] for h in symbol_headlines_dict[symbol]]:
                     symbol_headlines_dict[symbol].append({
                         "headline": headline[1],
                         "created": now,
                         "processed": False
                     })
 
-    if symbol_headlines_dict:
-        # Insert the entire dictionary as one document in MongoDB
-        news.insert_one({"symbol_headlines": symbol_headlines_dict, "date": formatted_date})
+        news.update_one({"date": formatted_date}, {"$set": {"symbol_headlines": symbol_headlines_dict}})
+    else:
+        symbol_headlines_dict = {}
+
+        for symbol, headlines in data.items():
+            if headlines:
+                symbol_headlines_dict[symbol] = []
+
+                for headline in headlines:
+                    if headline[0] == formatted_date:
+                        symbol_headlines_dict[symbol].append({
+                            "headline": headline[1],
+                            "created": now,
+                            "processed": False
+                        })
+
+        if symbol_headlines_dict:
+            news.insert_one({"symbol_headlines": symbol_headlines_dict, "date": formatted_date})
 
 
 if __name__ == "__main__":
-    # Top 25
-    search_list = ["BTC", "XRP", "USDT", "ETH", "BNB", "USDC", "STETH", "DOGE", "ADA", "SOL", "TRX",
-                   "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "WBTC", "AVAX", "XLM", "TON", "DAI", "LINK",
-                   "BUSD", "LEO"]
+    search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX",
+                   "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
     url_list = search_ticker_symbol(search_list)
 
     start_time = time.time()
@@ -110,4 +123,4 @@ if __name__ == "__main__":
     print("Headlines have been stored in MongoDB.")
     end_time = time.time()
     time_taken = end_time - start_time
-    print("Time taken for process is ", time_taken, " seconds.")
+    print("Time taken for process is", time_taken, "seconds.")
