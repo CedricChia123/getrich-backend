@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 from dotenv import load_dotenv
 import pymongo
@@ -47,7 +48,7 @@ class Scraper1:
             accept_button.click()
 
             # Wait briefly to allow the page to update after closing the banner
-            time.sleep(2)
+            time.sleep(5)
         except NoSuchElementException:
             print("Cookie consent banner not found. Proceeding without handling it.")
         except Exception as e:
@@ -61,7 +62,8 @@ class Scraper1:
         self.driver.get(url)
         self.handle_cookie_consent()
         
-        wait = WebDriverWait(self.driver, 10)
+        wait = WebDriverWait(self.driver, 30)
+        
         headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
         see_more_button_present = EC.presence_of_element_located((By.CSS_SELECTOR, button_selector))
         time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
@@ -188,7 +190,7 @@ class Scraper2:
         self.driver.get(url)
 
         # Wait for both headlines and dates to be present on the page
-        wait = WebDriverWait(self.driver, 10)
+        wait = WebDriverWait(self.driver, 30)
         headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a.Box-sc-1hpkeeg-0.hBnhmi h6.typography__StyledTypography-sc-owin6q-0.fkaXgH'))
         dates_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.searchstyles__DateWrapper-sc-ci5zlg-24.iQeyNE h6.typography__StyledTypography-sc-owin6q-0.fQGhGk'))
         wait.until(headlines_present)
@@ -293,4 +295,4 @@ if __name__ == "__main__":
     print("Both scrapers have finished running.")
     end_time = time.time()
     time_taken = end_time - start_time
-    print("Time taken for process is", time_taken, "seconds.")
+    print("Time taken for scraping is", time_taken, "seconds.")
