@@ -4,7 +4,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 from dotenv import load_dotenv
@@ -23,11 +22,13 @@ global_dict = {'BTC': 'bitcoin', 'XRP': 'xrp', 'ETH': 'ethereum', 'BNB': 'bnb', 
                'LTC': 'litecoin', 'MATIC': 'polygon', 'DOT': 'polkadot', 'SHIB': 'shiba-inu', 'BCH': 'bitcoin-cash', 'UNI': 'uniswap', 'AVAX': 'avalanche'}
 now = datetime.now()
 formatted_date = now.strftime("%b %d, %Y")
-search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX", "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
+# search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX", "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
+search_list = ["BTC", "XRP", "ETH"]
 
 class Scraper1:
     def __init__(self):
         self.driver = self.initialize_driver()
+        self.count = 0
 
     def initialize_driver(self):
         options = Options()
@@ -39,18 +40,23 @@ class Scraper1:
 
     def scrape_headline_news(self, url):
         headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
-        button_selector = 'button.sc-16891c57-0.foDtUe'
         time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
+        button_xpath = """/html/body/div[1]/div[2]/div[1]/div[2]/div/div/div[7]/section/div/div[2]/button/div[1]/div"""
 
         self.driver.get(url)
         
-        wait = WebDriverWait(self.driver, 30)
-        
+        time.sleep(2)
+        wait = WebDriverWait(self.driver, 10)
+        try:
+            WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
+        except TimeoutException:
+            print("Continuing without accepting cookies...")
+        for _ in range(2):
+            self.driver.find_element(By.XPATH, button_xpath).click()
+            time.sleep(2)
         headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
-        see_more_button_present = EC.presence_of_element_located((By.CSS_SELECTOR, button_selector))
         time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
         wait.until(headlines_present)
-        wait.until(see_more_button_present)
         wait.until(time_present)
 
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
@@ -65,25 +71,6 @@ class Scraper1:
             date_text = dates[i].get_text().strip()
             # Store the headline and date together as a tuple
             headline_news.append((date_text, headline_text))
-
-        # Click the "See More" button twice to load more news
-        for _ in range(2):
-            see_more_button = self.driver.find_element(By.CSS_SELECTOR, button_selector)
-            self.driver.execute_script('arguments[0].click()', see_more_button)
-
-            time.sleep(5)
-            soup = BeautifulSoup(self.driver.page_source, 'html.parser')
-
-            headlines = soup.select(headline_selector)
-            dates = soup.select(time_selector)
-
-            for i in range(len(headlines)):
-                headline_text = headlines[i].get_text().strip()
-                date_text = dates[i].get_text().strip()
-                headline_news.append((date_text, headline_text))
-
-        print(headline_news)
-
         return headline_news
 
     # Method to search result using ticker symbol. returns dictionary

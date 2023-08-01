@@ -28,37 +28,22 @@ def initialize_driver():
 
     return webdriver.Chrome(options=options)
 
-def handle_cookie_consent(driver):
-    try:
-        # Wait for the cookie consent banner to be present
-        cookie_banner_present = EC.presence_of_element_located((By.ID, 'onetrust-button-group'))
-        WebDriverWait(driver, 10).until(cookie_banner_present)
-
-        # Close the cookie consent banner by clicking the "Accept All" button (or any other appropriate button)
-        accept_button = driver.find_element(By.ID, 'onetrust-accept-btn-handler')
-        accept_button.click()
-
-        # Wait briefly to allow the page to update after closing the banner
-        time.sleep(2)
-    except NoSuchElementException:
-        print("Cookie consent banner not found. Proceeding without handling it.")
-    except Exception as e:
-        print("Moving on")
-
 def scrape_headline_news(driver, url):
     headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
-    button_selector = 'button.sc-16891c57-0.foDtUe'
     time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
+    button_xpath = """/html/body/div[1]/div[2]/div[1]/div[2]/div/div/div[7]/section/div/div[2]/button/div[1]/div"""
 
     driver.get(url)
-    handle_cookie_consent(driver)
     
+    time.sleep(2)
     wait = WebDriverWait(driver, 10)
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
+    for _ in range(2):
+        driver.find_element(By.XPATH, button_xpath).click()
+        time.sleep(2)
     headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
-    see_more_button_present = EC.presence_of_element_located((By.CSS_SELECTOR, button_selector))
     time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
     wait.until(headlines_present)
-    wait.until(see_more_button_present)
     wait.until(time_present)
 
     soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -73,22 +58,6 @@ def scrape_headline_news(driver, url):
         date_text = dates[i].get_text().strip()
         # Store the headline and date together as a tuple
         headline_news.append((date_text, headline_text))
-
-    # Click the "See More" button twice to load more news
-    for _ in range(2):
-        see_more_button = driver.find_element(By.CSS_SELECTOR, button_selector)
-        see_more_button.click()
-
-        time.sleep(5)
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-
-        headlines = soup.select(headline_selector)
-        dates = soup.select(time_selector)
-
-        for i in range(len(headlines)):
-            headline_text = headlines[i].get_text().strip()
-            date_text = dates[i].get_text().strip()
-            headline_news.append((date_text, headline_text))
 
     print(headline_news)
 
