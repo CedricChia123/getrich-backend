@@ -23,5 +23,5 @@ if __name__ == '__main__':
         time_taken = end_time - start_time
         print("Time taken for sentiment analysis is", time_taken, "seconds.")
         # Repeat every 1 hour
-        time.sleep(3600)
+        time.sleep(60)
         print("Executing next cycle")

@@ -22,8 +22,7 @@ global_dict = {'BTC': 'bitcoin', 'XRP': 'xrp', 'ETH': 'ethereum', 'BNB': 'bnb', 
                'LTC': 'litecoin', 'MATIC': 'polygon', 'DOT': 'polkadot', 'SHIB': 'shiba-inu', 'BCH': 'bitcoin-cash', 'UNI': 'uniswap', 'AVAX': 'avalanche'}
 now = datetime.now()
 formatted_date = now.strftime("%b %d, %Y")
-# search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX", "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
-search_list = ["BTC", "XRP", "ETH"]
+search_list = ["BTC", "XRP", "ETH", "BNB", "DOGE", "ADA", "SOL", "TRX", "LTC", "MATIC", "DOT", "SHIB", "BCH", "UNI", "AVAX"]
 
 class Scraper1:
     def __init__(self):
@@ -32,32 +31,31 @@ class Scraper1:
 
     def initialize_driver(self):
         options = Options()
-        options.add_argument('--headless')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--log-level=3')
 
         return webdriver.Chrome(options=options)
 
     def scrape_headline_news(self, url):
-        headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
-        time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
-        button_xpath = """/html/body/div[1]/div[2]/div[1]/div[2]/div/div/div[7]/section/div/div[2]/button/div[1]/div"""
+        headline_selector = 'div.sc-aef7b723-0.dDQUel.news_title h5.sc-16891c57-0.fmcNVa.base-text'
+        time_selector = 'span.sc-16891c57-0.dZnbgJ.base-text'
 
         self.driver.get(url)
+        self.driver.execute_script("window.location='news'")
+        self.driver.execute_script("window.scrollBy(0, 500);")
         
-        time.sleep(2)
         wait = WebDriverWait(self.driver, 10)
         try:
-            WebDriverWait(self.driver, 20).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
+            WebDriverWait(self.driver, 4).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
         except TimeoutException:
-            print("Continuing without accepting cookies...")
-        for _ in range(2):
-            self.driver.find_element(By.XPATH, button_xpath).click()
-            time.sleep(2)
-        headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
-        time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
-        wait.until(headlines_present)
-        wait.until(time_present)
+            print('Move on')
+        try:
+            headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
+            time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
+            wait.until(headlines_present)
+            wait.until(time_present)
+        except TimeoutException:
+            self.scrape_headline_news(url)
 
         soup = BeautifulSoup(self.driver.page_source, 'html.parser')
         headline_news = []
@@ -71,6 +69,7 @@ class Scraper1:
             date_text = dates[i].get_text().strip()
             # Store the headline and date together as a tuple
             headline_news.append((date_text, headline_text))
+
         return headline_news
 
     # Method to search result using ticker symbol. returns dictionary
@@ -79,7 +78,7 @@ class Scraper1:
         for symbol in symbol_list:
             # Retrieve the full name of ticker symbol
             name = global_dict[symbol]
-            url_list[symbol] = f"https://coinmarketcap.com/currencies/{name}/#News"
+            url_list[symbol] = f"https://coinmarketcap.com/currencies/{name}"
         return url_list
 
     def create_data(self, url_list):
@@ -133,8 +132,13 @@ class Scraper1:
                 news.insert_one({"symbol_headlines": symbol_headlines_dict, "date": formatted_date})
 
     def validate_time(self, data):
-        if data == 'an hour ago' or 'minutes' in data:
+        if data == 'an hour ago' in data:
             return True
+        if 'minutes' in data:
+            minutes = int(data.split()[0])  # Extract the number of minutes
+            if minutes <= 30:
+                print(data)
+                return True
         return False
 
 def scraper_1():

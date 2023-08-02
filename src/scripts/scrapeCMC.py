@@ -4,7 +4,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from datetime import datetime
 from dotenv import load_dotenv
 import pymongo
@@ -22,24 +22,27 @@ formatted_date = now.strftime("%b %d, %Y")
 
 def initialize_driver():
     options = Options()
-    options.add_argument('--headless')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--log-level=3')
 
     return webdriver.Chrome(options=options)
 
 def scrape_headline_news(driver, url):
-    headline_selector = 'div.sc-aef7b723-0.dDQUel.news_description--title h5.sc-16891c57-0.fmcNVa.base-text'
-    time_selector = 'div.sc-aef7b723-0.dDQUel.news_time span.sc-16891c57-0.dZnbgJ.base-text'
-    button_xpath = """/html/body/div[1]/div[2]/div[1]/div[2]/div/div/div[7]/section/div/div[2]/button/div[1]/div"""
+    headline_selector = 'div.sc-4478c964-2.dzSRu h3.sc-aba8b85a-0.jPQZtg'
+    time_selector = 'span.sc-4984dd93-0.sc-4478c964-12.hQygdF'
+    button_selector = "button.sc-44910c32-0.izpqHR.sc-f810ea0-0.gZtzxY"
 
     driver.get(url)
     
     time.sleep(2)
-    wait = WebDriverWait(driver, 10)
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
+    wait = WebDriverWait(driver, 30)
+    try:
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, 'onetrust-accept-btn-handler'))).click()
+    except TimeoutException:
+        print('Move on')
+    time.sleep(2)
     for _ in range(2):
-        driver.find_element(By.XPATH, button_xpath).click()
+        driver.find_element(By.CSS_SELECTOR, button_selector).click()
         time.sleep(2)
     headlines_present = EC.presence_of_all_elements_located((By.CSS_SELECTOR, headline_selector))
     time_present = EC.presence_of_element_located((By.CSS_SELECTOR, time_selector))
@@ -69,7 +72,7 @@ def search_ticker_symbol(symbol_list):
     for symbol in symbol_list:
         # Retrieve the full name of ticker symbol
         name = global_dict[symbol]
-        url_list[symbol] = f"https://coinmarketcap.com/currencies/{name}/#News"
+        url_list[symbol] = f"https://coinmarketcap.com/currencies/{name}/news"
     return url_list
 
 def create_data(driver, url_list):

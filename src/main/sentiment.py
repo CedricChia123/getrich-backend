@@ -42,7 +42,7 @@ def calculate_sentiment(data):
             labelled = 0
             if not headline['processed']:
                 # Call FinGPT, placebo function first
-                process_input=f"Human: Determine the sentiment of the financial news as negative, neutral or positive: {headline['headline']} Assistant: "
+                process_input=f"Human: Determine the sentiment of the financial news as negative, neutral or positive for {symbol}: {headline['headline']} Assistant: "
                 time.sleep(1)
                 response=chat_with_gpt(process_input)
                 if "negative" in response:
